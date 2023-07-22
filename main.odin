@@ -57,6 +57,7 @@ main :: proc() {
   for !quit {
     #partial switch state {
       case .NORMAL:
+        input_index += 1
         switch input_string[input_index] {
           case '<':
             state = .ANGLE_RUNE
@@ -64,6 +65,7 @@ main :: proc() {
             current_token = Text { }
         }
       case .ANGLE_RUNE:
+        input_index += 1
         switch input_string[input_index] {
           case '/':
             state = .TAG_END
