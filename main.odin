@@ -4,85 +4,49 @@ import "core:fmt"
 import "core:strings"
 import "core:unicode/utf8"
 
-TokenizeState :: enum {
-  NORMAL,
-  ANGLE_RUNE,
-  TAG_END,
-  TAG_NAME,
-}
-
-Attribute :: struct {
-  name:  []string,
-  value: []string,
-}
-
-StartTag :: struct {
-  name:         []string,
-  self_closing: bool,
-  attributes:   [dynamic]Attribute,
-}
-
-EndTag :: struct {
-  name:         []string,
-  self_closing: bool,
-  attributes:   [dynamic]Attribute,
-}
-
-Text :: struct {
-  data: []string
-}
-
-EOF :: struct {}
-
-Token :: distinct union {
-  StartTag,
-  EndTag,
-  Text,
-  EOF,
-}
-
-emit :: proc(tokens: ^[dynamic]Token, token: Token) {
-  append(tokens, token)
+emit :: proc(partitions: ^[dynamic]int, partition: int) {
+  append(partitions, partition)
 }
 
 main :: proc() {
-  input_string := "yo <😁Body>I'm in a body</body>"
+  input_string := "yo<Body>I'm in a body</body>"
 
-  state := TokenizeState.NORMAL
-  input_index := -1
-  tokens: [dynamic]Token
-  current_token: Token
-  quit: bool
+  PartitionType :: enum {
+    SYMBOL,
+    ALPHA,
+    WHITE_SPACE,
+    OTHER_TEXT,
+  }
+  partitions: [dynamic]int
+  current_partition: int
+  current_type: PartitionType
 
-  for !quit {
-    #partial switch state {
-      case .NORMAL:
-        input_index += 1
-        switch input_string[input_index] {
-          case '<':
-            state = .ANGLE_RUNE
-          case:
-            current_token = Text { }
+  for codepoint in input_string {
+    switch codepoint {
+      case '<', '>', '/':
+        emit(&partitions, current_partition)
+        emit(&partitions, 1)
+        current_type = .SYMBOL
+        current_partition = 0
+      case '\t', '\n', '\f', ' ':
+        emit(&partitions, current_partition)
+        emit(&partitions, 1)
+        current_type = .WHITE_SPACE
+        current_partition = 0
+      case 'A'..='z':
+        if current_type != .OTHER_TEXT {
+          current_type = .ALPHA
         }
-      case .ANGLE_RUNE:
-        input_index += 1
-        switch input_string[input_index] {
-          case '/':
-            state = .TAG_END
-          case 'A'..='z':
-            state = .TAG_NAME
-          case:
-
-        }
+        current_partition += 1
       case:
-        if _, ok := current_token.(Text); ok {
-
-        } else {
-          current_token = Text { }
-        }
+        current_type = .OTHER_TEXT
+        current_partition += 1
     }
   }
-  for token in tokens {
-    fmt.println(token)
+
+  current_index := 0
+  for partition in partitions{
+    fmt.println(input_string[current_index : current_index + partition])
+    current_index += partition
   }
 }
